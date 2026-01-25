@@ -4,9 +4,10 @@ import { redis } from '@/lib/redis';
 import { hashApiKey } from '@/lib/utils';
 
 // Initialize Supabase Admin client (Service Role)
+// Initialize Supabase Admin client (Service Role)
 const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key'
 );
 
 export async function POST(req: NextRequest) {

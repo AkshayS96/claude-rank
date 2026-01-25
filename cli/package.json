@@ -1,0 +1,30 @@
+{
+  "name": "claude-rank",
+  "version": "1.0.0",
+  "description": "CLI tool for tracking Claude Code usage on the leaderboard",
+  "main": "dist/index.js",
+  "bin": {
+    "claude-rank": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@types/inquirer": "^9.0.9",
+    "@types/node": "^25.0.10",
+    "@types/node-fetch": "^2.6.13",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.5",
+    "commander": "^14.0.2",
+    "inquirer": "^13.2.1",
+    "node-fetch": "^2.7.0",
+    "open": "^11.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
