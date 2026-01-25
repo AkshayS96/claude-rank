@@ -36,7 +36,7 @@ function DeviceAuthContent() {
         // Redirect back here after login
         const next = `/auth/device?user_code=${code}`;
         await supabase.auth.signInWithOAuth({
-            provider: 'twitter',
+            provider: 'x',
             options: {
                 redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
             }
