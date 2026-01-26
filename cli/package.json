@@ -1,7 +1,7 @@
 {
   "name": "claude-rank",
   "version": "1.0.0",
-  "description": "CLI tool for tracking Claude Code usage on the leaderboard",
+  "description": "CLI tool for tracking Claude Rank usage on the leaderboard",
   "main": "dist/index.js",
   "bin": {
     "claude-rank": "dist/index.js"

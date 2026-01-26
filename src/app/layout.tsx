@@ -6,7 +6,7 @@ const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Claude Rank",
-  description: "Global leaderboard for Claude Code token usage",
+  description: "Global leaderboard for Claude Rank token usage",
 };
 
 export default function RootLayout({

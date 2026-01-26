@@ -16,6 +16,7 @@ export default function LoginPage() {
                 provider: 'x',
                 options: {
                     redirectTo: `${window.location.origin}/auth/callback`,
+                    scopes: 'users.read'
                 },
             });
 
