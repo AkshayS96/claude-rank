@@ -6,7 +6,7 @@ import os from 'os';
 // Change API_BASE_URL to update all endpoints
 // ============================================
 
-export const API_BASE_URL = 'https://airank.dev';
+export const API_BASE_URL = 'https://clauderank.vercel.app/';
 
 // Derived URLs - automatically use the base URL
 export const urls = {
