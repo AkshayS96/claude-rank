@@ -96,9 +96,6 @@ export async function POST(req: NextRequest) {
 
             const allTokens = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
             const meta = JSON.stringify({ input: inputTokens, output: outputTokens, cache_read: cacheReadTokens, cache_write: cacheWriteTokens });
-
-            console.log(`Inserting usage_log: user=${profile.id}, hour=${hourBucket.toISOString()}, tokens=${allTokens}`);
-
             try {
                 await db.query(`
                     INSERT INTO usage_logs (user_id, twitter_handle, token_count, metric_type, timestamp, hour_bucket, meta)
