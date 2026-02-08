@@ -47,7 +47,7 @@ export default function UserProfilePage() {
             const { data } = await supabase
                 .from('profiles')
                 .select('*')
-                .eq('twitter_handle', decodedHandle)
+                .eq('username', decodedHandle)
                 .single();
 
             if (data) {
@@ -189,7 +189,7 @@ export default function UserProfilePage() {
                             </div>
                         </div>
 
-                        <p className="text-xl text-zinc-500 font-medium mb-2">@{profile.github_handle || profile.twitter_handle || profile.display_name}</p>
+                        <p className="text-xl text-zinc-500 font-medium mb-2">@{profile.username || profile.twitter_handle || profile.display_name}</p>
                         <p className="text-zinc-400 text-sm">Dashboard &bull; Last active {new Date(profile.last_active).toLocaleDateString()}</p>
                     </div>
                 </header>

@@ -1,6 +1,7 @@
 export interface LeaderboardUser {
     id: string;
-    twitter_handle: string;
+    username: string;
+    twitter_handle?: string;
     github_handle?: string;
     // api_key_hash is not exposed to frontend
     input_tokens: number;

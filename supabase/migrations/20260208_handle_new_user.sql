@@ -51,39 +51,44 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Fallback for twitter_handle to ensure unique constraint (it is NOT NULL in schema)
-    IF twitter_handle IS NULL THEN
-         -- try to fetch from existing profile if updating
-         SELECT p.twitter_handle INTO twitter_handle FROM public.profiles p WHERE p.id = NEW.id;
-         
-         -- if still null, use username or generate one
-         IF twitter_handle IS NULL THEN
-            twitter_handle := username;
-         END IF;
+    -- Fallback: If username is null, generate one
+    IF username IS NULL THEN
+        username := 'user_' || substr(md5(random()::text), 1, 8);
     END IF;
 
+    -- Ensure username is unique (simple check, append random if needed)
+    WHILE EXISTS (SELECT 1 FROM public.profiles WHERE username = username AND id != NEW.id) LOOP
+        username := substr(username, 1, 58) || '_' || substr(md5(random()::text), 1, 4);
+    END LOOP;
 
     INSERT INTO public.profiles (
         id, 
-        twitter_handle, -- Used as primary handle/username
+        username, -- New primary handle
+        twitter_handle, -- Only if actually connected
         github_handle,
         avatar_url, 
         provider,
         display_name,
-        last_active
+        last_active,
+        api_key_hash
     )
     VALUES (
         NEW.id, 
-        twitter_handle, 
+        username,
+        twitter_handle, -- Will be NULL if not explicitly set
         github_handle,
         avatar_url, 
         provider,
         display_name,
-        NOW()
+        NOW(),
+        md5(random()::text)
     )
     ON CONFLICT (id) DO UPDATE SET
-        twitter_handle = EXCLUDED.twitter_handle,
-        github_handle = EXCLUDED.github_handle,
+        username = EXCLUDED.username, -- Update username if it changed? Maybe better to keep original? 
+        -- Actually, usually we don't want to change username on login unless we have a reason.
+        -- But for now let's update it to ensure sync with auth.
+        twitter_handle = COALESCE(EXCLUDED.twitter_handle, profiles.twitter_handle), -- Keep existing if new is null
+        github_handle = COALESCE(EXCLUDED.github_handle, profiles.github_handle),
         avatar_url = EXCLUDED.avatar_url,
         provider = EXCLUDED.provider,
         display_name = EXCLUDED.display_name,

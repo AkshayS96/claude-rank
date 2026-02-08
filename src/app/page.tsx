@@ -12,7 +12,8 @@ import type { User } from '@supabase/supabase-js';
 
 interface Profile {
   id: string;
-  twitter_handle: string;
+  username: string;
+  twitter_handle?: string;
   avatar_url: string;
   provider?: string;
   github_handle?: string;
@@ -303,28 +304,18 @@ export default function LeaderboardPage() {
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           {/* Name Display */}
                           <div className="flex flex-col min-w-0 max-w-[150px] lg:max-w-[200px]">
-                            {(profile.provider === 'github' && !profile.twitter_handle) ? (
-                              <a href={`https://github.com/${profile.github_handle || profile.display_name}`} target="_blank" rel="noopener noreferrer" className="group-hover:text-[#EB5B39] transition-colors flex flex-col min-w-0">
-                                <span className={`truncate leading-tight ${index === 0 ? 'text-yellow-500 font-black' :
-                                  index === 1 ? 'text-zinc-400 font-bold' :
-                                    index === 2 ? 'text-amber-700 font-semibold' :
-                                      'text-zinc-900 font-medium'
-                                  }`}>{profile.display_name || profile.github_handle || profile.twitter_handle}</span>
-                              </a>
-                            ) : (
-                              <Link href={`/u/${profile.twitter_handle}`} className="group-hover:text-[#EB5B39] transition-colors flex flex-col min-w-0">
-                                <span className={`truncate leading-tight ${index === 0 ? 'text-yellow-500 font-black' :
-                                  index === 1 ? 'text-zinc-400 font-bold' :
-                                    index === 2 ? 'text-amber-700 font-semibold' :
-                                      'text-zinc-900 font-medium'
-                                  }`}>{profile.display_name || profile.twitter_handle}</span>
-                              </Link>
-                            )}
+                            <Link href={`/u/${profile.username}`} className="group-hover:text-[#EB5B39] transition-colors flex flex-col min-w-0">
+                              <span className={`truncate leading-tight ${index === 0 ? 'text-yellow-500 font-black' :
+                                index === 1 ? 'text-zinc-400 font-bold' :
+                                  index === 2 ? 'text-amber-700 font-semibold' :
+                                    'text-zinc-900 font-medium'
+                                }`}>{profile.display_name || profile.username || profile.twitter_handle}</span>
+                            </Link>
                           </div>
 
                           {/* Icons Display - Big and Cool */}
                           <div className="flex items-center gap-2">
-                            {profile.twitter_handle && profile.twitter_handle.indexOf('@') === -1 && (
+                            {profile.twitter_handle && (
                               <a
                                 href={`https://x.com/${profile.twitter_handle}`}
                                 target="_blank"
