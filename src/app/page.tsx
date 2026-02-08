@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { Terminal, Cpu, Zap, Activity, BarChart3, TrendingUp, Github } from 'lucide-react';
+import { Terminal, Cpu, Zap, Activity, BarChart3, TrendingUp, Github, LogOut } from 'lucide-react';
 import { formatCompactNumber } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
@@ -15,6 +15,7 @@ interface Profile {
   twitter_handle: string;
   avatar_url: string;
   provider?: string;
+  github_handle?: string;
   display_name?: string;
   total_tokens: number;
   input_tokens: number;
@@ -138,20 +139,60 @@ export default function LeaderboardPage() {
 
       <div className="max-w-6xl mx-auto relative z-10">
         <header className="mb-12 border-b border-zinc-200 pb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-[#EB5B39] rounded-lg flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
-              <Terminal className="w-6 h-6" />
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-[#EB5B39] rounded-lg flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+                <Terminal className="w-6 h-6" />
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-zinc-900">
+                Claude Rank
+              </h1>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-zinc-900">
-              Claude Rank
-            </h1>
+
+            {/* Top Right Actions */}
+            <div className="flex items-center gap-3 self-start">
+              <a
+                href="https://github.com/AkshayS96/claude-rank"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-zinc-900 text-white hover:bg-zinc-800 rounded-lg transition-all font-medium shadow-md shadow-zinc-200 flex items-center gap-2 text-sm"
+              >
+                <Github className="w-4 h-4" />
+                {githubStars !== null ? (
+                  <>
+                    <span>Star</span>
+                    <span className="bg-zinc-800 px-2 py-0.5 rounded-full text-xs font-mono ml-1">{formatCompactNumber(githubStars)}</span>
+                  </>
+                ) : (
+                  'Star'
+                )}
+              </a>
+
+              {user ? (
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    window.location.reload();
+                  }}
+                  className="px-4 py-2 border border-zinc-200 bg-white text-zinc-600 hover:text-red-600 hover:border-red-200 rounded-lg transition-all font-medium text-sm flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              ) : (
+                <Link href="/auth/login" className="px-4 py-2 bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 rounded-lg transition-all font-medium text-sm">
+                  Login
+                </Link>
+              )}
+            </div>
           </div>
-          <p className="text-zinc-500 text-lg max-w-2xl">
+
+          <p className="text-zinc-500 text-lg max-w-2xl mb-8">
             Global telemetry for high-velocity engineering teams.
             Tracking <span className="text-[#EB5B39] font-bold">{profiles.reduce((acc, p) => acc + (p.total_tokens || 0), 0).toLocaleString()}</span> tokens shipped.
           </p>
 
-          <div className="mt-8 flex gap-4">
+          <div className="flex gap-4">
             {authLoading ? (
               <div className="px-6 py-3 bg-zinc-200 text-zinc-400 rounded-lg font-medium shadow-xl shadow-zinc-200 animate-pulse">
                 Loading...
@@ -174,15 +215,6 @@ export default function LeaderboardPage() {
                 >
                   <TrendingUp className="w-4 h-4" /> Share Rank
                 </button>
-                <button
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    window.location.reload();
-                  }}
-                  className="px-6 py-3 border border-zinc-200 bg-white text-zinc-600 hover:text-red-600 hover:border-red-200 rounded-lg transition-all font-medium"
-                >
-                  Logout
-                </button>
               </>
             ) : (
               <Link href="/auth/login" className="px-6 py-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-lg transition-all font-medium shadow-xl shadow-zinc-200">
@@ -192,22 +224,6 @@ export default function LeaderboardPage() {
             <Link href="/setup" className="px-6 py-3 border border-zinc-200 bg-white text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 rounded-lg transition-all font-medium">
               How to Setup
             </Link>
-            <a
-              href="https://github.com/AkshayS96/claude-rank"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-lg transition-all font-medium shadow-xl shadow-zinc-200 flex items-center gap-2"
-            >
-              <Github className="w-5 h-5" />
-              {githubStars !== null ? (
-                <>
-                  <span>Star</span>
-                  <span className="bg-zinc-800 px-2 py-0.5 rounded-full text-xs font-mono ml-1">{formatCompactNumber(githubStars)}</span>
-                </>
-              ) : (
-                'Star on GitHub'
-              )}
-            </a>
           </div>
         </header>
 
@@ -262,7 +278,7 @@ export default function LeaderboardPage() {
         <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
           <div className="grid grid-cols-12 gap-4 p-5 bg-zinc-50 border-b border-zinc-100 text-xs uppercase tracking-wider text-zinc-400 font-bold">
             <div className="col-span-1">#</div>
-            <div className="col-span-4 pl-2">X Account</div>
+            <div className="col-span-4 pl-2">User</div>
             <div className="col-span-3 text-right">Tokens</div>
             <div className="col-span-2 text-right hidden md:block">Eff.</div>
             <div className="col-span-2 text-right hidden md:block">Cache</div>
@@ -284,26 +300,58 @@ export default function LeaderboardPage() {
                     >
                       <div className="col-span-1 font-bold text-zinc-300 text-xl group-hover:text-[#EB5B39] transition-colors">{index + 1}</div>
                       <div className="col-span-4 flex items-center gap-4 pl-2">
-                        <div className="w-10 h-10 bg-zinc-100 rounded-lg flex items-center justify-center overflow-hidden border border-zinc-200">
-                          {profile.avatar_url ? (
-                            <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-zinc-400 font-bold">{(profile.display_name || profile.twitter_handle)?.slice(0, 1)}</span>
-                          )}
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {/* Name Display */}
+                          <div className="flex flex-col min-w-0 max-w-[150px] lg:max-w-[200px]">
+                            {(profile.provider === 'github' && !profile.twitter_handle) ? (
+                              <a href={`https://github.com/${profile.github_handle || profile.display_name}`} target="_blank" rel="noopener noreferrer" className="group-hover:text-[#EB5B39] transition-colors flex flex-col min-w-0">
+                                <span className={`truncate leading-tight ${index === 0 ? 'text-yellow-500 font-black' :
+                                  index === 1 ? 'text-zinc-400 font-bold' :
+                                    index === 2 ? 'text-amber-700 font-semibold' :
+                                      'text-zinc-900 font-medium'
+                                  }`}>{profile.display_name || profile.github_handle || profile.twitter_handle}</span>
+                              </a>
+                            ) : (
+                              <Link href={`/u/${profile.twitter_handle}`} className="group-hover:text-[#EB5B39] transition-colors flex flex-col min-w-0">
+                                <span className={`truncate leading-tight ${index === 0 ? 'text-yellow-500 font-black' :
+                                  index === 1 ? 'text-zinc-400 font-bold' :
+                                    index === 2 ? 'text-amber-700 font-semibold' :
+                                      'text-zinc-900 font-medium'
+                                  }`}>{profile.display_name || profile.twitter_handle}</span>
+                              </Link>
+                            )}
+                          </div>
+
+                          {/* Icons Display - Big and Cool */}
+                          <div className="flex items-center gap-2">
+                            {profile.twitter_handle && profile.twitter_handle.indexOf('@') === -1 && (
+                              <a
+                                href={`https://x.com/${profile.twitter_handle}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-black transition-all duration-200 group/icon shadow-sm hover:shadow-md ring-1 ring-zinc-200/50 hover:ring-black"
+                                title="View on X"
+                              >
+                                {/* Custom X Logo for better look */}
+                                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden="true">
+                                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                                </svg>
+                              </a>
+                            )}
+
+                            {profile.github_handle && (
+                              <a
+                                href={`https://github.com/${profile.github_handle}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-[#24292e] transition-all duration-200 group/icon shadow-sm hover:shadow-md ring-1 ring-zinc-200/50 hover:ring-[#24292e]"
+                                title="View on GitHub"
+                              >
+                                <Github className="w-4 h-4" />
+                              </a>
+                            )}
+                          </div>
                         </div>
-                        {(!profile.provider || profile.provider === 'twitter') ? (
-                          <Link href={`/u/${profile.twitter_handle}`} className="font-medium text-zinc-900 group-hover:text-[#EB5B39] transition-colors truncate block">
-                            @{profile.twitter_handle}
-                          </Link>
-                        ) : profile.provider === 'github' ? (
-                          <a href={`https://github.com/${profile.twitter_handle}`} target="_blank" rel="noopener noreferrer" className="font-medium text-zinc-900 group-hover:text-[#EB5B39] transition-colors truncate block flex items-center gap-1">
-                            {profile.display_name || profile.twitter_handle} <span className="text-zinc-400 text-xs">↗</span>
-                          </a>
-                        ) : (
-                          <span className="font-medium text-zinc-900 truncate block">
-                            {profile.display_name || profile.twitter_handle}
-                          </span>
-                        )}
                       </div>
                       <div className="col-span-3 text-right font-bold text-zinc-900 font-mono text-lg">
                         {formatCompactNumber(profile.total_tokens || 0)}

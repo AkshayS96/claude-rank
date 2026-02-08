@@ -30,28 +30,10 @@ export default function AuthCallbackPage() {
                 return;
             }
 
-            // Sync user to leaderboard
-            setStatus('Syncing profile...');
-            try {
-                const res = await fetch('/api/auth/sync', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${session.access_token}`
-                    }
-                });
-
-                if (!res.ok) {
-                    console.error('Sync failed');
-                }
-
-                // Check if there is a 'next' param
-                const params = new URLSearchParams(window.location.search);
-                const next = params.get('next') || '/';
-                router.push(next);
-            } catch (e) {
-                console.error(e);
-                router.push('/');
-            }
+            // Redirect to dashboard/home
+            const params = new URLSearchParams(window.location.search);
+            const next = params.get('next') || '/';
+            router.push(next);
         };
 
         // We can also subscribe to auth state changes which might fire after code exchange

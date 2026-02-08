@@ -6,7 +6,7 @@ import { formatCompactNumber } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Lock } from 'lucide-react';
+import { ArrowLeft, Lock, Github } from 'lucide-react';
 import { FloatingCode } from '@/components/FloatingCode';
 import type { User } from '@supabase/supabase-js';
 
@@ -43,25 +43,23 @@ export default function UserProfilePage() {
         const fetchData = async () => {
             const decodedHandle = decodeURIComponent(handle);
 
-            // Check if current user is the profile owner
-            const currentUserHandle = currentUser?.user_metadata?.preferred_username ||
-                currentUser?.user_metadata?.user_name;
-
-            if (currentUserHandle?.toLowerCase() !== decodedHandle.toLowerCase()) {
-                setIsOwner(false);
-                return; // Don't fetch data if not owner
-            }
-
-            setIsOwner(true);
-
-            // Fetch Profile
+            // Fetch Profile first to verify ownership via ID
             const { data } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('twitter_handle', decodedHandle)
                 .single();
 
-            if (data) setProfile(data);
+            if (data) {
+                // Verify ownership by checking user ID match
+                if (currentUser?.id !== data.id) {
+                    setIsOwner(false);
+                    return;
+                }
+
+                setIsOwner(true);
+                setProfile(data);
+            }
 
             if (data) {
                 const { data: logs } = await supabase
@@ -150,16 +148,49 @@ export default function UserProfilePage() {
                 </Link>
 
                 <header className="flex flex-col md:flex-row items-center gap-6 mb-12 border-b border-zinc-200 pb-8">
-                    <div className="w-24 h-24 bg-white rounded-xl border border-zinc-200 flex items-center justify-center overflow-hidden shadow-sm">
+                    <div className="w-24 h-24 bg-white rounded-full border border-zinc-200 flex items-center justify-center overflow-hidden shadow-sm flex-shrink-0">
                         {profile.avatar_url ? (
-                            <img src={profile.avatar_url} className="w-full h-full object-cover" />
+                            <img src={profile.avatar_url} className="w-full h-full object-cover" alt={profile.display_name} />
                         ) : (
-                            <span className="text-4xl text-zinc-300 font-bold">{profile.twitter_handle[0]}</span>
+                            <span className="text-4xl text-zinc-300 font-bold">{(profile.display_name || profile.twitter_handle)?.[0]}</span>
                         )}
                     </div>
-                    <div className="text-center md:text-left">
-                        <h1 className="text-4xl font-bold text-zinc-900 mb-2">@{profile.twitter_handle}</h1>
-                        <p className="text-zinc-500 text-sm">Dashboard &bull; Last active {new Date(profile.last_active).toLocaleDateString()}</p>
+                    <div className="text-center md:text-left flex-1 min-w-0">
+                        <div className="flex items-center justify-center md:justify-start gap-4 mb-2">
+                            <h1 className="text-4xl font-bold text-zinc-900 truncate">{profile.display_name || profile.github_handle || profile.twitter_handle}</h1>
+
+                            {/* Social Icons */}
+                            <div className="flex items-center gap-2">
+                                {profile.twitter_handle && profile.twitter_handle.indexOf('@') === -1 && (
+                                    <a
+                                        href={`https://x.com/${profile.twitter_handle}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-black transition-all duration-200 group/icon shadow-sm hover:shadow-md ring-1 ring-zinc-200/50 hover:ring-black"
+                                        title="View on X"
+                                    >
+                                        <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true">
+                                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                                        </svg>
+                                    </a>
+                                )}
+
+                                {profile.github_handle && (
+                                    <a
+                                        href={`https://github.com/${profile.github_handle}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-[#24292e] transition-all duration-200 group/icon shadow-sm hover:shadow-md ring-1 ring-zinc-200/50 hover:ring-[#24292e]"
+                                        title="View on GitHub"
+                                    >
+                                        <Github className="w-5 h-5" />
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+
+                        <p className="text-xl text-zinc-500 font-medium mb-2">@{profile.github_handle || profile.twitter_handle || profile.display_name}</p>
+                        <p className="text-zinc-400 text-sm">Dashboard &bull; Last active {new Date(profile.last_active).toLocaleDateString()}</p>
                     </div>
                 </header>
 
