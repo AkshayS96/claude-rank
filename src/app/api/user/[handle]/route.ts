@@ -7,7 +7,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<any> }
 
     try {
         const { rows } = await db.query(
-            `SELECT id, twitter_handle, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens, last_active, created_at FROM profiles WHERE twitter_handle = $1`,
+            `SELECT id, username, twitter_handle, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens, last_active, created_at FROM profiles WHERE username = $1`,
             [handle]
         );
 

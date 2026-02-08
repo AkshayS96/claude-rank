@@ -55,12 +55,12 @@ export default function LeaderboardTable({ users }: LeaderboardTableProps) {
                             <div className="col-span-5 md:col-span-4 flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center border border-zinc-600">
                                     <span className="text-xs font-bold text-zinc-300">
-                                        {user.twitter_handle.substring(0, 2).toUpperCase()}
+                                        {(user.username || user.twitter_handle || "??").substring(0, 2).toUpperCase()}
                                     </span>
                                 </div>
-                                <Link href={`/user/${user.twitter_handle}`} className="flex flex-col">
+                                <Link href={`/u/${user.username}`} className="flex flex-col">
                                     <span className="text-sm font-semibold text-zinc-200 group-hover:text-claude transition-colors">
-                                        @{user.twitter_handle}
+                                        @{user.username || user.twitter_handle}
                                     </span>
                                 </Link>
                             </div>

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
         // Validate API key against stored hash
         const apiKeyHash = await hashApiKey(apiKey);
         const { rows } = await db.query(
-            'SELECT id, twitter_handle FROM profiles WHERE api_key_hash = $1',
+            'SELECT id FROM profiles WHERE api_key_hash = $1',
             [apiKeyHash]
         );
 
@@ -98,8 +98,8 @@ export async function POST(req: NextRequest) {
             const meta = JSON.stringify({ input: inputTokens, output: outputTokens, cache_read: cacheReadTokens, cache_write: cacheWriteTokens });
             try {
                 await db.query(`
-                    INSERT INTO usage_logs (user_id, twitter_handle, token_count, metric_type, timestamp, hour_bucket, meta)
-                    VALUES ($1, $2, $3, 'aggregate', NOW(), $4, $5::jsonb)
+                    INSERT INTO usage_logs (user_id, token_count, metric_type, timestamp, hour_bucket, meta)
+                    VALUES ($1, $2, 'aggregate', NOW(), $3, $4::jsonb)
                     ON CONFLICT (user_id, hour_bucket) WHERE metric_type = 'aggregate'
                     DO UPDATE SET 
                         token_count = usage_logs.token_count + EXCLUDED.token_count,
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
                             'cache_read', COALESCE((usage_logs.meta->>'cache_read')::int, 0) + (EXCLUDED.meta->>'cache_read')::int,
                             'cache_write', COALESCE((usage_logs.meta->>'cache_write')::int, 0) + (EXCLUDED.meta->>'cache_write')::int
                         )
-                `, [profile.id, profile.twitter_handle, allTokens, hourBucket, meta]);
+                `, [profile.id, allTokens, hourBucket, meta]);
                 console.log('usage_logs INSERT successful');
             } catch (logErr: any) {
                 console.error('usage_logs INSERT failed:', logErr.message);
