@@ -19,8 +19,24 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error } = await client.auth.getUser();
     if (error || !user) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
-    const twitterHandle = user.user_metadata?.preferred_username || user.user_metadata?.user_name || user.email?.split('@')[0];
-    const avatarUrl = user.user_metadata?.avatar_url;
+    const identity = user.identities?.[0];
+    const provider = identity?.provider || 'twitter';
+
+    let twitterHandle = user.user_metadata?.preferred_username || user.user_metadata?.user_name;
+    let displayName = user.user_metadata?.full_name || user.user_metadata?.name || twitterHandle;
+    const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+
+    // Fallback for non-twitter providers to ensure unique handle constraint
+    if (!twitterHandle) {
+        if (provider === 'github') {
+            twitterHandle = user.user_metadata?.user_name || `gh_${user.id.slice(0, 8)}`;
+        } else if (provider === 'google') {
+            // Google often doesn't give a username, create one from email or random
+            twitterHandle = user.email?.split('@')[0] || `user_${user.id.slice(0, 8)}`;
+        } else {
+            twitterHandle = `user_${user.id.slice(0, 8)}`;
+        }
+    }
 
     // Check existing
     const { data: existing } = await client.from('profiles').select('id').eq('id', user.id).single();
@@ -35,6 +51,8 @@ export async function POST(req: NextRequest) {
             id: user.id, // Explicitly set ID to match auth.uid()
             twitter_handle: twitterHandle,
             avatar_url: avatarUrl,
+            display_name: displayName,
+            provider: provider,
             api_key_hash: hash,
             last_active: new Date().toISOString()
         });
@@ -50,6 +68,8 @@ export async function POST(req: NextRequest) {
         await client.from('profiles').update({
             twitter_handle: twitterHandle,
             avatar_url: avatarUrl,
+            display_name: displayName,
+            provider: provider,
             last_active: new Date().toISOString()
         }).eq('id', user.id);
     }

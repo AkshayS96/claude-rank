@@ -14,6 +14,8 @@ interface Profile {
   id: string;
   twitter_handle: string;
   avatar_url: string;
+  provider?: string;
+  display_name?: string;
   total_tokens: number;
   input_tokens: number;
   output_tokens: number;
@@ -91,7 +93,7 @@ export default function LeaderboardPage() {
         if (data.users) {
           setProfiles(prev => {
             // Filter out duplicates just in case
-            const newIds = new Set(data.users.map((u: any) => u.id));
+            const newIds = new Set(data.users.map((u: Profile) => u.id));
             return [...prev.filter(p => !newIds.has(p.id)), ...data.users];
           });
         }
@@ -286,12 +288,22 @@ export default function LeaderboardPage() {
                           {profile.avatar_url ? (
                             <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <span className="text-zinc-400 font-bold">{profile.twitter_handle?.slice(0, 1)}</span>
+                            <span className="text-zinc-400 font-bold">{(profile.display_name || profile.twitter_handle)?.slice(0, 1)}</span>
                           )}
                         </div>
-                        <Link href={`/u/${profile.twitter_handle}`} className="font-medium text-zinc-900 group-hover:text-[#EB5B39] transition-colors truncate block">
-                          @{profile.twitter_handle}
-                        </Link>
+                        {(!profile.provider || profile.provider === 'twitter') ? (
+                          <Link href={`/u/${profile.twitter_handle}`} className="font-medium text-zinc-900 group-hover:text-[#EB5B39] transition-colors truncate block">
+                            @{profile.twitter_handle}
+                          </Link>
+                        ) : profile.provider === 'github' ? (
+                          <a href={`https://github.com/${profile.twitter_handle}`} target="_blank" rel="noopener noreferrer" className="font-medium text-zinc-900 group-hover:text-[#EB5B39] transition-colors truncate block flex items-center gap-1">
+                            {profile.display_name || profile.twitter_handle} <span className="text-zinc-400 text-xs">↗</span>
+                          </a>
+                        ) : (
+                          <span className="font-medium text-zinc-900 truncate block">
+                            {profile.display_name || profile.twitter_handle}
+                          </span>
+                        )}
                       </div>
                       <div className="col-span-3 text-right font-bold text-zinc-900 font-mono text-lg">
                         {formatCompactNumber(profile.total_tokens || 0)}
