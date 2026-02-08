@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { Terminal, Cpu, Zap, Activity, BarChart3, TrendingUp } from 'lucide-react';
+import { Terminal, Cpu, Zap, Activity, BarChart3, TrendingUp, Github } from 'lucide-react';
 import { formatCompactNumber } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
@@ -36,6 +36,18 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [githubStars, setGithubStars] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('https://api.github.com/repos/AkshayS96/claude-rank')
+      .then(res => res.json())
+      .then(data => {
+        if (data.stargazers_count) {
+          setGithubStars(data.stargazers_count);
+        }
+      })
+      .catch(err => console.error('Failed to fetch github stars', err));
+  }, []);
 
   // Pagination State
   const [page, setPage] = useState(1);
@@ -178,6 +190,22 @@ export default function LeaderboardPage() {
             <Link href="/setup" className="px-6 py-3 border border-zinc-200 bg-white text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 rounded-lg transition-all font-medium">
               How to Setup
             </Link>
+            <a
+              href="https://github.com/AkshayS96/claude-rank"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-lg transition-all font-medium shadow-xl shadow-zinc-200 flex items-center gap-2"
+            >
+              <Github className="w-5 h-5" />
+              {githubStars !== null ? (
+                <>
+                  <span>Star</span>
+                  <span className="bg-zinc-800 px-2 py-0.5 rounded-full text-xs font-mono ml-1">{formatCompactNumber(githubStars)}</span>
+                </>
+              ) : (
+                'Star on GitHub'
+              )}
+            </a>
           </div>
         </header>
 
