@@ -79,6 +79,24 @@ export default function LeaderboardPage() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Fetch current user profile to get username
+  const [myProfile, setMyProfile] = useState<Profile | null>(null);
+  useEffect(() => {
+    if (user) {
+      // We can use the username if we have it, but better to fetch by ID or just use the user object if robust
+      // But wait, our API requires handle. 
+      // Actually, we can just fetch from profiles table via Supabase client directly
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setMyProfile(data);
+        });
+    }
+  }, [user]);
+
   const fetchLeaderboard = async (pageNum = 1) => {
     try {
       if (pageNum === 1) setLoading(true);
@@ -200,7 +218,7 @@ export default function LeaderboardPage() {
               </div>
             ) : user ? (
               <>
-                <Link href={`/u/${user.user_metadata?.preferred_username || user.user_metadata?.user_name}`} className="px-6 py-3 bg-[#EB5B39] text-white hover:bg-[#d94e2f] rounded-lg transition-all font-medium shadow-xl shadow-orange-200">
+                <Link href={`/u/${myProfile?.username || myProfile?.twitter_handle || user.user_metadata?.preferred_username}`} className="px-6 py-3 bg-[#EB5B39] text-white hover:bg-[#d94e2f] rounded-lg transition-all font-medium shadow-xl shadow-orange-200">
                   Dashboard
                 </Link>
                 <button

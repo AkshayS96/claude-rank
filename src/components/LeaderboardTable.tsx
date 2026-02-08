@@ -58,7 +58,7 @@ export default function LeaderboardTable({ users }: LeaderboardTableProps) {
                                         {(user.username || user.twitter_handle || "??").substring(0, 2).toUpperCase()}
                                     </span>
                                 </div>
-                                <Link href={`/u/${user.username}`} className="flex flex-col">
+                                <Link href={`/u/${user.username || user.twitter_handle}`} className="flex flex-col">
                                     <span className="text-sm font-semibold text-zinc-200 group-hover:text-claude transition-colors">
                                         @{user.username || user.twitter_handle}
                                     </span>

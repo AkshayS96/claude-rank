@@ -51,20 +51,20 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Fallback: If username is null, generate one
+    -- Fallback for username (ensure it's not null)
     IF username IS NULL THEN
         username := 'user_' || substr(md5(random()::text), 1, 8);
     END IF;
 
-    -- Ensure username is unique (simple check, append random if needed)
+    -- Ensure unique username with suffix if needed
     WHILE EXISTS (SELECT 1 FROM public.profiles WHERE username = username AND id != NEW.id) LOOP
         username := substr(username, 1, 58) || '_' || substr(md5(random()::text), 1, 4);
     END LOOP;
 
     INSERT INTO public.profiles (
         id, 
-        username, -- New primary handle
-        twitter_handle, -- Only if actually connected
+        username,
+        twitter_handle, 
         github_handle,
         avatar_url, 
         provider,
@@ -75,20 +75,18 @@ BEGIN
     VALUES (
         NEW.id, 
         username,
-        twitter_handle, -- Will be NULL if not explicitly set
+        twitter_handle, 
         github_handle,
         avatar_url, 
         provider,
         display_name,
         NOW(),
-        md5(random()::text)
+        md5(random()::text) 
     )
     ON CONFLICT (id) DO UPDATE SET
-        username = EXCLUDED.username, -- Update username if it changed? Maybe better to keep original? 
-        -- Actually, usually we don't want to change username on login unless we have a reason.
-        -- But for now let's update it to ensure sync with auth.
-        twitter_handle = COALESCE(EXCLUDED.twitter_handle, profiles.twitter_handle), -- Keep existing if new is null
-        github_handle = COALESCE(EXCLUDED.github_handle, profiles.github_handle),
+        username = EXCLUDED.username,
+        twitter_handle = EXCLUDED.twitter_handle,
+        github_handle = EXCLUDED.github_handle,
         avatar_url = EXCLUDED.avatar_url,
         provider = EXCLUDED.provider,
         display_name = EXCLUDED.display_name,
