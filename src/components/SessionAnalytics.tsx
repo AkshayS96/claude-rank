@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCompactNumber, formatCurrency } from '@/lib/utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { Terminal, Cpu, DollarSign, Activity, Wallet, Box, Clock, Zap, AlertCircle } from 'lucide-react';
+import { Terminal, Cpu, DollarSign, Activity, Wallet, Box, Clock, Zap, AlertCircle, Github, LayoutDashboard } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#818cf8', '#10b981', '#94a3b8', '#c084fc', '#f472b6'];
 

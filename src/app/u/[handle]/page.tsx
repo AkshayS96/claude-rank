@@ -6,7 +6,7 @@ import { formatCompactNumber, formatCurrency } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Lock, Github, Shield, ShieldOff, LayoutDashboard, Activity } from 'lucide-react';
+import { ArrowLeft, Lock, Github, Shield, ShieldOff, LayoutDashboard, Activity, Clock } from 'lucide-react';
 import { FloatingCode } from '@/components/FloatingCode';
 import SessionAnalytics from '@/components/SessionAnalytics';
 import BadgeDisplay from '@/components/BadgeDisplay';
@@ -129,7 +129,7 @@ export default function UserProfilePage() {
                     <Shield className="w-16 h-12 text-slate-200 mx-auto mb-6" />
                     <h1 className="text-2xl font-bold text-slate-900 mb-2">Private Dashboard</h1>
                     <p className="text-slate-500 mb-8">You can only access your own telemetry data.</p>
-                    <Link href="/" className="px-8 py-4 bg-slate-900 text-white hover:bg-slate-800 rounded-xl transition-all font-bold block">
+                    <Link href="/u/me" className="px-8 py-4 bg-slate-900 text-white hover:bg-slate-800 rounded-xl transition-all font-bold block">
                         Back to Public Grid
                     </Link>
                 </div>
