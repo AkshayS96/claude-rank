@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { hashApiKey } from '@/lib/utils';
+import { hashApiKey, calculateCost, calculateBadges } from '@/lib/utils';
 
 // POST: Receive OTel metrics from Claude Code
 export async function POST(req: NextRequest) {
@@ -42,32 +42,45 @@ export async function POST(req: NextRequest) {
         let outputTokens = 0;
         let cacheReadTokens = 0;
         let cacheWriteTokens = 0;
+        const sessionStats: Record<string, { model: string, projectName: string, input: number, output: number, cacheRead: number, cacheCreation: number }> = {};
 
         for (const rm of resourceMetrics) {
+            const projectName = rm.resource?.attributes?.find((a: any) => a.key === 'service.name' || a.key === 'project.name')?.value?.stringValue || 'default';
             const scopeMetrics = rm.scopeMetrics || [];
             for (const sm of scopeMetrics) {
                 const metrics = sm.metrics || [];
                 for (const metric of metrics) {
-                    if (metric.name === 'claude_code.token.usage') {
-                        // Sum type metric has dataPoints
+                    if (metric.name === 'claude_code.token.usage' || metric.name === 'claude_code.tool_use.count') {
                         const dataPoints = metric.sum?.dataPoints || [];
                         for (const dp of dataPoints) {
                             const tokenType = dp.attributes?.find((a: any) => a.key === 'type')?.value?.stringValue;
+                            const model = dp.attributes?.find((a: any) => a.key === 'model')?.value?.stringValue || 'claude-3-7-sonnet-20250219';
+                            const traceId = dp.attributes?.find((a: any) => a.key === 'trace_id')?.value?.stringValue || 'manual-' + Date.now();
                             const value = Number(dp.asInt || dp.asDouble || 0);
 
-                            switch (tokenType) {
-                                case 'input':
-                                    inputTokens += value;
-                                    break;
-                                case 'output':
-                                    outputTokens += value;
-                                    break;
-                                case 'cacheRead':
-                                    cacheReadTokens += value;
-                                    break;
-                                case 'cacheCreation':
-                                    cacheWriteTokens += value;
-                                    break;
+                            if (!sessionStats[traceId]) {
+                                sessionStats[traceId] = { model, projectName, input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+                            }
+
+                            if (metric.name === 'claude_code.token.usage') {
+                                switch (tokenType) {
+                                    case 'input': inputTokens += value; sessionStats[traceId].input += value; break;
+                                    case 'output': outputTokens += value; sessionStats[traceId].output += value; break;
+                                    case 'cacheRead': cacheReadTokens += value; sessionStats[traceId].cacheRead += value; break;
+                                    case 'cacheCreation': cacheWriteTokens += value; sessionStats[traceId].cacheCreation += value; break;
+                                }
+                            }
+
+                            if (metric.name === 'claude_code.tool_use.count') {
+                                const toolName = dp.attributes?.find((a: any) => a.key === 'tool_name')?.value?.stringValue;
+                                if (toolName && value > 0) {
+                                    await db.query(`
+                                        INSERT INTO tool_usage (session_id, tool_name, call_count)
+                                        VALUES ($1, $2, $3)
+                                        ON CONFLICT (session_id, tool_name)
+                                        DO UPDATE SET call_count = tool_usage.call_count + EXCLUDED.call_count, last_called = NOW()
+                                    `, [traceId, toolName, value]);
+                                }
                             }
                         }
                     }
@@ -75,10 +88,19 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const totalTokens = inputTokens + outputTokens; // For ranking: actual API work
-        // Update profile with new token counts (atomic increment)
-        // Note: total_tokens is a generated column = input + output
+        const totalTokens = inputTokens + outputTokens;
         if (totalTokens > 0 || cacheReadTokens > 0 || cacheWriteTokens > 0) {
+            // Calculate total cost for this chunk
+            let chunkCost = 0;
+            for (const stats of Object.values(sessionStats)) {
+                chunkCost += calculateCost(stats.model, { 
+                    input: stats.input, 
+                    output: stats.output, 
+                    cache_read: stats.cacheRead, 
+                    cache_write: stats.cacheCreation 
+                });
+            }
+
             await db.query(`
                 UPDATE profiles 
                 SET 
@@ -86,11 +108,41 @@ export async function POST(req: NextRequest) {
                     output_tokens = COALESCE(output_tokens, 0) + $2,
                     cache_read_tokens = COALESCE(cache_read_tokens, 0) + $3,
                     cache_write_tokens = COALESCE(cache_write_tokens, 0) + $4,
+                    total_cost = COALESCE(total_cost, 0) + $5,
                     last_active = NOW()
-                WHERE id = $5
-            `, [inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, profile.id]);
+                WHERE id = $6
+            `, [inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, chunkCost, profile.id]);
 
-            // Insert/update hourly usage log for activity chart (1 row per user per hour)
+            // Update individual sessions
+            for (const [traceId, stats] of Object.entries(sessionStats)) {
+                const cost = calculateCost(stats.model, { 
+                    input: stats.input, 
+                    output: stats.output, 
+                    cache_read: stats.cacheRead, 
+                    cache_write: stats.cacheCreation 
+                });
+                
+                await db.query(`
+                    INSERT INTO usage_sessions (id, user_id, model, project_name, total_input_tokens, total_output_tokens, total_cache_read, total_cache_write, total_cost, last_active)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+                    ON CONFLICT (id) DO UPDATE SET 
+                        project_name = EXCLUDED.project_name,
+                        total_input_tokens = usage_sessions.total_input_tokens + EXCLUDED.total_input_tokens,
+                        total_output_tokens = usage_sessions.total_output_tokens + EXCLUDED.total_output_tokens,
+                        total_cache_read = usage_sessions.total_cache_read + EXCLUDED.total_cache_read,
+                        total_cache_write = usage_sessions.total_cache_write + EXCLUDED.total_cache_write,
+                        total_cost = usage_sessions.total_cost + EXCLUDED.total_cost,
+                        last_active = NOW()
+                `, [traceId, profile.id, stats.model, stats.projectName, stats.input, stats.output, stats.cacheRead, stats.cacheCreation, cost]);
+            }
+
+            // Calculate and Update Badges
+            const { rows: updatedProfileRows } = await db.query('SELECT * FROM profiles WHERE id = $1', [profile.id]);
+            const updatedProfile = updatedProfileRows[0];
+            const { rows: toolStatsRows } = await db.query('SELECT tool_name, SUM(call_count) as call_count FROM tool_usage WHERE session_id IN (SELECT id FROM usage_sessions WHERE user_id = $1) GROUP BY tool_name', [profile.id]);
+            const badges = calculateBadges(updatedProfile, toolStatsRows.map(r => ({ tool_name: r.tool_name, call_count: Number(r.call_count) })));
+            
+            await db.query('UPDATE profiles SET badges = $1 WHERE id = $2', [JSON.stringify(badges), profile.id]);
             const hourBucket = new Date();
             hourBucket.setMinutes(0, 0, 0); // Truncate to hour
 

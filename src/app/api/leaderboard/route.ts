@@ -12,8 +12,9 @@ export async function GET(request: Request) {
         const offset = (page - 1) * limit;
 
         const { rows } = await db.query(`
-        SELECT id, username, twitter_handle, github_handle, avatar_url, provider, display_name, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens, last_active, created_at
+        SELECT id, username, twitter_handle, github_handle, avatar_url, provider, display_name, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens, last_active, created_at, badges
         FROM profiles
+        WHERE is_public = true
         ORDER BY total_tokens DESC
         LIMIT $1 OFFSET $2
       `, [limit, offset]);

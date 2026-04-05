@@ -62,17 +62,12 @@ export async function PUT(req: NextRequest) {
         const apiKey = 'sk_airank_' + crypto.randomBytes(16).toString('hex');
         const apiKeyHash = await hashApiKey(apiKey);
 
-        // Get twitter handle from user metadata
-        const twitterHandle = user.user_metadata?.preferred_username ||
-            user.user_metadata?.user_name ||
-            user.email?.split('@')[0];
-
         // Upsert profile (create if doesn't exist, update if it does)
+        // Note: we don't set username/handles here, the trigger handles that
         const { error: lbError } = await client
             .from('profiles')
             .upsert({
                 id: user.id,
-                twitter_handle: twitterHandle,
                 api_key_hash: apiKeyHash,
                 avatar_url: user.user_metadata?.avatar_url,
                 last_active: new Date().toISOString()
@@ -98,7 +93,7 @@ export async function PUT(req: NextRequest) {
             return NextResponse.json({ error: 'Failed to verify code: ' + dcError.message }, { status: 500 });
         }
 
-        console.log('Device verified successfully for:', twitterHandle);
+        console.log('Device verified successfully for user:', user.id);
         return NextResponse.json({ success: true });
     } catch (e: any) {
         console.error('PUT device error:', e);
@@ -118,7 +113,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
         .from('device_codes')
         // Join with profiles to get handle
-        .select('verified, user_id, temp_api_key, profiles(twitter_handle)')
+        .select('verified, user_id, temp_api_key, profiles(username)')
         .eq('code', code)
         .single();
 
@@ -130,7 +125,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({
             status: 'complete',
             // @ts-ignore
-            twitter_handle: data.profiles?.twitter_handle,
+            twitter_handle: data.profiles?.username,
             api_key: data.temp_api_key
         });
     }

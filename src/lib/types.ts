@@ -11,6 +11,8 @@ export interface LeaderboardUser {
     total_tokens: number; // input + output (for ranking)
     last_active: string;
     created_at: string;
+    is_public?: boolean;
+    badges?: string[];
     savings_score?: number; // Calculated field
     rank?: number; // Calculated field
 }

@@ -3,11 +3,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { Terminal, Cpu, Zap, Activity, BarChart3, TrendingUp, Github, LogOut } from 'lucide-react';
+import { Terminal, Cpu, Zap, Activity, BarChart3, TrendingUp, Github, LogOut, ChevronRight } from 'lucide-react';
 import { formatCompactNumber } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
 import { FloatingCode } from '@/components/FloatingCode';
+import BadgeDisplay from '@/components/BadgeDisplay';
 import type { User } from '@supabase/supabase-js';
 
 interface Profile {
@@ -24,6 +25,7 @@ interface Profile {
   cache_read_tokens: number;
   cache_write_tokens: number;
   last_active: string;
+  badges?: string[];
 }
 
 interface Stats {
@@ -34,7 +36,6 @@ interface Stats {
 }
 
 export default function LeaderboardPage() {
-  console.log('LeaderboardPage rendering');
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [stats, setStats] = useState<Stats>({ peak_throughput: 0 });
   const [loading, setLoading] = useState(true);
@@ -53,39 +54,27 @@ export default function LeaderboardPage() {
       .catch(err => console.error('Failed to fetch github stars', err));
   }, []);
 
-  // Pagination State
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const loaderRef = useRef<HTMLDivElement>(null);
 
-  // Check authentication state
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      console.log('Auth check - Session:', session, 'Error:', error);
+      const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
       setAuthLoading(false);
     };
-
     checkAuth();
-
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('Auth state changed:', _event, 'User:', session?.user?.email);
       setUser(session?.user ?? null);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch current user profile to get username
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
   useEffect(() => {
     if (user) {
-      // We can use the username if we have it, but better to fetch by ID or just use the user object if robust
-      // But wait, our API requires handle. 
-      // Actually, we can just fetch from profiles table via Supabase client directly
       supabase
         .from('profiles')
         .select('*')
@@ -109,16 +98,13 @@ export default function LeaderboardPage() {
         if (data.users) setProfiles(data.users);
         if (data.stats) setStats(data.stats);
       } else {
-        // Append new profiles
         if (data.users) {
           setProfiles(prev => {
-            // Filter out duplicates just in case
             const newIds = new Set(data.users.map((u: Profile) => u.id));
             return [...prev.filter(p => !newIds.has(p.id)), ...data.users];
           });
         }
       }
-
       if (!data.users || data.users.length < 50) setHasMore(false);
     } catch (e) {
       console.error("Failed to fetch leaderboard", e);
@@ -130,13 +116,10 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     fetchLeaderboard(1);
-    // Realtime updates disabled for paginated view to avoid complexity
   }, []);
 
-  // Infinite Scroll Observer
   useEffect(() => {
-    if (!user) return; // Only for logged in users
-
+    if (!user) return;
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
         setPage(prev => {
@@ -146,41 +129,39 @@ export default function LeaderboardPage() {
         });
       }
     }, { threshold: 0.1 });
-
     if (loaderRef.current) observer.observe(loaderRef.current);
     return () => observer.disconnect();
   }, [user, hasMore, loadingMore, loading]);
 
   return (
-    <main className="min-h-screen bg-[#faf9f6] text-zinc-800 font-mono p-4 md:p-8 relative selection:bg-[#EB5B39] selection:text-white">
+    <main className="min-h-screen bg-slate-50 text-slate-900 font-mono p-4 md:p-8 relative selection:bg-indigo-600 selection:text-white">
       <FloatingCode side="left" />
       <FloatingCode side="right" />
 
       <div className="max-w-6xl mx-auto relative z-10">
-        <header className="mb-12 border-b border-zinc-200 pb-8">
+        <header className="mb-12 border-b border-slate-200 pb-8">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-8">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#EB5B39] rounded-lg flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+              <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-indigo-500/20">
                 <Terminal className="w-6 h-6" />
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-zinc-900">
-                Claude Rank
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
+                Crank
               </h1>
             </div>
 
-            {/* Top Right Actions */}
             <div className="flex items-center gap-3 self-start">
               <a
-                href="https://github.com/AkshayS96/claude-rank"
+                href="https://github.com/AkshayS96/crank"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 bg-zinc-900 text-white hover:bg-zinc-800 rounded-lg transition-all font-medium shadow-md shadow-zinc-200 flex items-center gap-2 text-sm"
+                className="px-4 py-2 bg-white text-slate-700 hover:text-slate-900 hover:border-slate-300 rounded-xl transition-all font-bold border border-slate-200 flex items-center gap-2 text-sm shadow-sm"
               >
                 <Github className="w-4 h-4" />
                 {githubStars !== null ? (
                   <>
                     <span>Star</span>
-                    <span className="bg-zinc-800 px-2 py-0.5 rounded-full text-xs font-mono ml-1">{formatCompactNumber(githubStars)}</span>
+                    <span className="bg-slate-100 px-2 py-0.5 rounded-full text-xs font-mono ml-1">{formatCompactNumber(githubStars)}</span>
                   </>
                 ) : (
                   'Star'
@@ -193,75 +174,74 @@ export default function LeaderboardPage() {
                     await supabase.auth.signOut();
                     window.location.reload();
                   }}
-                  className="px-4 py-2 border border-zinc-200 bg-white text-zinc-600 hover:text-red-600 hover:border-red-200 rounded-lg transition-all font-medium text-sm flex items-center gap-2"
+                  className="px-4 py-2 border border-slate-200 bg-white text-slate-500 hover:text-red-600 hover:border-red-100 rounded-xl transition-all font-bold text-sm flex items-center gap-2 shadow-sm"
                 >
                   <LogOut className="w-4 h-4" />
                   Logout
                 </button>
               ) : (
-                <Link href="/auth/login" className="px-4 py-2 bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 rounded-lg transition-all font-medium text-sm">
+                <Link href="/auth/login" className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 rounded-xl transition-all font-bold text-sm shadow-sm">
                   Login
                 </Link>
               )}
             </div>
           </div>
 
-          <p className="text-zinc-500 text-lg max-w-2xl mb-8">
+          <p className="text-slate-500 text-lg max-w-2xl mb-8 leading-relaxed">
             Global telemetry for high-velocity engineering teams.
-            Tracking <span className="text-[#EB5B39] font-bold">{profiles.reduce((acc, p) => acc + (p.total_tokens || 0), 0).toLocaleString()}</span> tokens shipped.
+            Tracking <span className="text-indigo-600 font-bold">{profiles.reduce((acc, p) => acc + (p.total_tokens || 0), 0).toLocaleString()}</span> tokens shipped.
           </p>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             {authLoading ? (
-              <div className="px-6 py-3 bg-zinc-200 text-zinc-400 rounded-lg font-medium shadow-xl shadow-zinc-200 animate-pulse">
-                Loading...
+              <div className="px-6 py-3 bg-white text-slate-400 rounded-xl font-bold border border-slate-100 animate-pulse shadow-sm">
+                Scanning...
               </div>
             ) : user ? (
               <>
-                <Link href={`/u/${myProfile?.username || myProfile?.twitter_handle || user.user_metadata?.preferred_username}`} className="px-6 py-3 bg-[#EB5B39] text-white hover:bg-[#d94e2f] rounded-lg transition-all font-medium shadow-xl shadow-orange-200">
-                  Dashboard
+                <Link href={`/u/${myProfile?.username || myProfile?.twitter_handle || user.user_metadata?.preferred_username}`} className="px-6 py-3 bg-indigo-600 text-white hover:bg-indigo-500 rounded-xl transition-all font-bold shadow-xl shadow-indigo-500/20 flex items-center gap-2">
+                  My Dashboard <ChevronRight className="w-4 h-4" />
                 </Link>
                 <button
                   onClick={() => {
                     const myProfile = profiles.find(p => p.id === user.id);
                     if (!myProfile) return;
                     const rank = profiles.findIndex(p => p.id === user.id) + 1;
-                    const text = `I'm ranked #${rank} on the unofficial Claude Leaderboard ⚡️\n\nTotal Tokens: ${formatCompactNumber(myProfile.total_tokens)}\n\nTrack your stats:`;
-                    const url = 'https://clauderank.vercel.app';
+                    const text = `I'm ranked #${rank} on Crank ⚡️\n\nTotal Tokens: ${formatCompactNumber(myProfile.total_tokens)}\n\nTrack your stats:`;
+                    const url = 'https://crank.sh'; 
                     window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
                   }}
-                  className="px-6 py-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-lg transition-all font-medium shadow-xl shadow-zinc-200 flex items-center gap-2"
+                  className="px-6 py-3 bg-white text-slate-700 hover:text-indigo-600 hover:border-indigo-100 rounded-xl transition-all font-bold border border-slate-200 shadow-sm flex items-center gap-2"
                 >
                   <TrendingUp className="w-4 h-4" /> Share Rank
                 </button>
               </>
             ) : (
-              <Link href="/auth/login" className="px-6 py-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-lg transition-all font-medium shadow-xl shadow-zinc-200">
+              <Link href="/auth/login" className="px-6 py-3 bg-slate-900 text-white hover:bg-slate-800 rounded-xl transition-all font-bold shadow-xl shadow-slate-900/10">
                 Join Network
               </Link>
             )}
-            <Link href="/setup" className="px-6 py-3 border border-zinc-200 bg-white text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 rounded-lg transition-all font-medium">
-              How to Setup
+            <Link href="/setup" className="px-6 py-3 border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 rounded-xl transition-all font-bold shadow-sm">
+              Setup Guide
             </Link>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <StatCard label="Active Nodes (24h)" value={formatCompactNumber(stats.active_users_24h || profiles.length)} icon={<Cpu />} />
-          <StatCard label="24h Volume" value={formatCompactNumber(stats.last_24h_tokens || 0)} icon={<TrendingUp />} />
-          <StatCard label="Peak T/s" value={formatCompactNumber(stats.peak_throughput)} icon={<Zap />} />
-          <StatCard label="System Status" value="ONLINE" icon={<Activity />} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+          <StatCard label="Active Nodes" value={formatCompactNumber(stats.active_users_24h || profiles.length)} icon={<Cpu className="w-5 h-5" />} />
+          <StatCard label="24h Volume" value={formatCompactNumber(stats.last_24h_tokens || 0)} icon={<TrendingUp className="w-5 h-5" />} />
+          <StatCard label="Peak T/s" value={formatCompactNumber(stats.peak_throughput)} icon={<Zap className="w-5 h-5" />} />
+          <StatCard label="Network" value="ONLINE" icon={<Activity className="w-5 h-5" />} />
         </div>
 
-        {/* Activity Graph */}
         {stats.graph_data && stats.graph_data.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-zinc-200 p-6 mb-12">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-12">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xs uppercase tracking-widest text-zinc-400 font-bold flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" /> Network Activity (Last 12h)
+              <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" /> Network Activity (12h)
               </h3>
-              <span className="text-xs text-zinc-400 font-mono">
-                Since {new Date(stats.graph_data[0].time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <span className="text-xs text-slate-400 font-mono">
+                Real-time feed
               </span>
             </div>
             <div className="h-48 w-full">
@@ -269,21 +249,21 @@ export default function LeaderboardPage() {
                 <AreaChart data={stats.graph_data}>
                   <defs>
                     <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#EB5B39" stopOpacity={0.1} />
-                      <stop offset="95%" stopColor="#EB5B39" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.1} />
+                      <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#fff', borderColor: '#e4e4e7', color: '#18181b', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
-                    itemStyle={{ color: '#ea580c' }}
-                    labelStyle={{ color: '#71717a', marginBottom: '0.25rem', fontSize: '12px' }}
+                    contentStyle={{ backgroundColor: '#fff', borderColor: '#e2e8f0', color: '#1e293b', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    itemStyle={{ color: '#4F46E5' }}
+                    labelStyle={{ color: '#64748b', marginBottom: '0.25rem', fontSize: '12px' }}
                     formatter={(value: number | undefined) => [formatCompactNumber(value || 0), 'Tokens']}
                     labelFormatter={(label) => new Date(label).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   />
                   <Area
                     type="monotone"
                     dataKey="tokens"
-                    stroke="#EB5B39"
+                    stroke="#4F46E5"
                     fillOpacity={1}
                     fill="url(#colorTokens)"
                     strokeWidth={2}
@@ -294,18 +274,18 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
-          <div className="grid grid-cols-12 gap-4 p-5 bg-zinc-50 border-b border-zinc-100 text-xs uppercase tracking-wider text-zinc-400 font-bold">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="grid grid-cols-12 gap-4 p-5 bg-slate-50/50 border-b border-slate-100 text-xs uppercase tracking-wider text-slate-400 font-bold">
             <div className="col-span-1">#</div>
-            <div className="col-span-4 pl-2">User</div>
+            <div className="col-span-5 md:col-span-4 pl-2">User</div>
             <div className="col-span-3 text-right">Tokens</div>
-            <div className="col-span-2 text-right hidden md:block">Eff.</div>
-            <div className="col-span-2 text-right hidden md:block">Cache</div>
+            <div className="col-span-2 text-right hidden md:block">Efficiency</div>
+            <div className="col-span-2 text-right hidden lg:block">Cache</div>
           </div>
 
-          <div className="divide-y divide-zinc-100">
+          <div className="divide-y divide-slate-100">
             {loading ? (
-              <div className="p-12 text-center text-zinc-400 animate-pulse">Scanning network...</div>
+              <div className="p-12 text-center text-slate-400 animate-pulse">Scanning network...</div>
             ) : (
               <>
                 <AnimatePresence>
@@ -315,62 +295,59 @@ export default function LeaderboardPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="grid grid-cols-12 gap-4 p-5 hover:bg-orange-50/50 transition-colors items-center group"
+                      className="grid grid-cols-12 gap-4 p-5 hover:bg-slate-50/80 transition-colors items-center group"
                     >
-                      <div className="col-span-1 font-bold text-zinc-300 text-xl group-hover:text-[#EB5B39] transition-colors">{index + 1}</div>
-                      <div className="col-span-4 flex items-center gap-4 pl-2">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          {/* Name Display */}
-                          <div className="flex flex-col min-w-0 max-w-[150px] lg:max-w-[200px]">
-                            <Link href={`/u/${profile.username}`} className="group-hover:text-[#EB5B39] transition-colors flex flex-col min-w-0">
-                              <span className={`truncate leading-tight ${index === 0 ? 'text-yellow-500 font-black' :
-                                index === 1 ? 'text-zinc-400 font-bold' :
-                                  index === 2 ? 'text-amber-700 font-semibold' :
-                                    'text-zinc-900 font-medium'
-                                }`}>{profile.display_name || profile.username || profile.twitter_handle}</span>
-                            </Link>
-                          </div>
+                      <div className="col-span-1 font-bold text-slate-300 text-xl group-hover:text-indigo-600 transition-colors">{index + 1}</div>
+                      <div className="col-span-5 md:col-span-4 flex items-center gap-4 pl-2">
+                        <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex flex-col min-w-0">
+                              <Link href={`/u/${profile.username}`} className="group-hover:text-indigo-600 transition-colors flex flex-col min-w-0">
+                                <span className={`truncate leading-tight font-bold ${index === 0 ? 'text-indigo-600' : 'text-slate-900'}`}>
+                                  {profile.display_name || profile.username || profile.twitter_handle}
+                                </span>
+                              </Link>
+                            </div>
 
-                          {/* Icons Display - Big and Cool */}
-                          <div className="flex items-center gap-2">
-                            {profile.twitter_handle && (
-                              <a
-                                href={`https://x.com/${profile.twitter_handle}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-black transition-all duration-200 group/icon shadow-sm hover:shadow-md ring-1 ring-zinc-200/50 hover:ring-black"
-                                title="View on X"
-                              >
-                                {/* Custom X Logo for better look */}
-                                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden="true">
-                                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                                </svg>
-                              </a>
-                            )}
-
-                            {profile.github_handle && (
-                              <a
-                                href={`https://github.com/${profile.github_handle}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-[#24292e] transition-all duration-200 group/icon shadow-sm hover:shadow-md ring-1 ring-zinc-200/50 hover:ring-[#24292e]"
-                                title="View on GitHub"
-                              >
-                                <Github className="w-4 h-4" />
-                              </a>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              {profile.twitter_handle && (
+                                <a
+                                  href={`https://x.com/${profile.twitter_handle}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-all"
+                                  title="View on X"
+                                >
+                                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
+                                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                                  </svg>
+                                </a>
+                              )}
+                              {profile.github_handle && (
+                                <a
+                                  href={`https://github.com/${profile.github_handle}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-all"
+                                  title="View on GitHub"
+                                >
+                                  <Github className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                            </div>
                           </div>
+                          <BadgeDisplay badges={profile.badges || []} />
                         </div>
                       </div>
-                      <div className="col-span-3 text-right font-bold text-zinc-900 font-mono text-lg">
+                      <div className="col-span-3 text-right font-bold text-slate-900 font-mono text-lg">
                         {formatCompactNumber(profile.total_tokens || 0)}
                       </div>
-                      <div className="col-span-2 text-right hidden md:block text-zinc-500 font-mono">
+                      <div className="col-span-2 text-right hidden md:block text-slate-500 font-mono text-sm">
                         {(profile.input_tokens + profile.cache_read_tokens) > 0
                           ? Math.round((profile.cache_read_tokens / (profile.input_tokens + profile.cache_read_tokens)) * 100)
                           : 0}%
                       </div>
-                      <div className="col-span-2 text-right hidden md:block text-zinc-500 font-mono">
+                      <div className="col-span-2 text-right hidden lg:block text-slate-400 font-mono text-sm">
                         {formatCompactNumber(profile.cache_read_tokens || 0)}
                       </div>
                     </motion.div>
@@ -378,37 +355,33 @@ export default function LeaderboardPage() {
                 </AnimatePresence>
 
                 {user && hasMore && (
-                  <div ref={loaderRef} className="py-8 text-center text-zinc-400 font-mono text-sm animate-pulse">
-                    {loadingMore ? 'Loading more agents...' : 'Scroll to load more'}
+                  <div ref={loaderRef} className="py-8 text-center text-slate-400 font-mono text-xs animate-pulse">
+                    {loadingMore ? 'Loading more nodes...' : 'Scroll to discover'}
                   </div>
                 )}
 
                 {!user && profiles.length > 10 && (
                   <div className="relative">
-                    {/* Blurred rows to tease */}
-                    <div className="divide-y divide-zinc-100 opacity-30 blur-[2px] pointer-events-none select-none overflow-hidden">
-                      {profiles.slice(10, 13).map((profile, index) => (
-                        <div key={profile.id} className="grid grid-cols-12 gap-4 p-5 items-center">
-                          <div className="col-span-1 text-zinc-400 font-bold text-xl">{11 + index}</div>
-                          <div className="col-span-4 flex items-center gap-4 pl-2">
-                            <div className="w-10 h-10 bg-zinc-100 rounded-lg"></div>
-                            <div className="font-bold text-zinc-900">@{profile.twitter_handle}</div>
+                    <div className="divide-y divide-slate-100 opacity-20 blur-[1px] pointer-events-none select-none overflow-hidden">
+                      {profiles.slice(10, 13).map((p, i) => (
+                        <div key={i} className="grid grid-cols-12 gap-4 p-5 items-center">
+                          <div className="col-span-1 text-slate-300 font-bold text-xl">{11 + i}</div>
+                          <div className="col-span-5 flex items-center gap-4 pl-2">
+                            <div className="w-8 h-8 bg-slate-100 rounded-lg" />
+                            <div className="font-bold text-slate-400">••••••••</div>
                           </div>
-                          <div className="col-span-3 text-right font-mono text-lg text-zinc-900">{formatCompactNumber(profile.total_tokens)}</div>
-                          <div className="col-span-2 text-right hidden md:block text-zinc-500">--%</div>
-                          <div className="col-span-2 text-right hidden md:block text-zinc-500">-</div>
+                          <div className="col-span-3 text-right font-mono text-lg text-slate-300">000.0k</div>
+                          <div className="col-span-2 text-right hidden md:block text-slate-200">--%</div>
                         </div>
                       ))}
                     </div>
-
-                    {/* CTA Overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-white via-white/80 to-transparent">
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-white via-white/90 to-transparent">
                       <Link
                         href="/auth/login"
-                        className="px-8 py-4 bg-[#EB5B39] hover:bg-[#d94e2f] text-white font-bold rounded-xl shadow-2xl shadow-orange-500/30 transition-all transform hover:scale-105 flex items-center gap-3 text-lg"
+                        className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-2xl shadow-indigo-500/30 transition-all transform hover:scale-105 flex items-center gap-3 text-lg"
                       >
                         <Terminal className="w-6 h-6" />
-                        Connect Terminal to View Full Leaderboard
+                        Connect to View All
                       </Link>
                     </div>
                   </div>
@@ -418,13 +391,12 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="mt-12 pt-8 border-t border-zinc-200 text-center text-sm text-zinc-400">
-          <div className="flex justify-center gap-6">
-            <Link href="/terms" className="hover:text-zinc-600 transition-colors">Terms of Service</Link>
-            <Link href="/privacy" className="hover:text-zinc-600 transition-colors">Privacy Policy</Link>
+        <footer className="mt-12 pt-8 border-t border-slate-200 text-center text-sm text-slate-400">
+          <div className="flex justify-center gap-6 mb-4">
+            <Link href="/terms" className="hover:text-slate-600 transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-slate-600 transition-colors">Privacy</Link>
           </div>
-          <p className="mt-4 text-xs">This is a community project and is not affiliated with or endorsed by any AI company.</p>
+          <p className="text-xs">Community project. Not affiliated with Anthropic.</p>
         </footer>
       </div>
     </main>
@@ -433,13 +405,13 @@ export default function LeaderboardPage() {
 
 function StatCard({ label, value, icon }: { label: string, value: string, icon: any }) {
   return (
-    <div className="p-5 border border-zinc-200 bg-white rounded-xl flex items-center gap-4 shadow-sm">
-      <div className="p-3 bg-orange-50 text-[#EB5B39] rounded-lg">
+    <div className="p-5 border border-slate-200 bg-white rounded-2xl flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
         {icon}
       </div>
       <div>
-        <div className="text-xs text-zinc-400 uppercase tracking-widest mb-1 font-bold">{label}</div>
-        <div className="text-2xl font-bold text-zinc-900">{value}</div>
+        <div className="text-[10px] text-slate-400 uppercase tracking-widest mb-0.5 font-bold">{label}</div>
+        <div className="text-xl font-bold text-slate-900">{value}</div>
       </div>
     </div>
   );
