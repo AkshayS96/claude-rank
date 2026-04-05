@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Missing auth headers' }, { status: 401 });
         }
 
-        const apiKey = authHeader.replace('Bearer ', '');
+        const apiKey = authHeader.replace(/^Bearer\s+/i, '').trim();
 
         // Parse OTLP metrics payload
         const body = await req.json();
@@ -42,25 +42,58 @@ export async function POST(req: NextRequest) {
         let outputTokens = 0;
         let cacheReadTokens = 0;
         let cacheWriteTokens = 0;
-        const sessionStats: Record<string, { model: string, projectName: string, input: number, output: number, cacheRead: number, cacheCreation: number }> = {};
+        let sessionCount = 0;
+        let linesOfCode = 0;
+        let commitCount = 0;
+        let prCount = 0;
+
+        const sessionStats: Record<string, { 
+            model: string, 
+            projectName: string, 
+            input: number, 
+            output: number, 
+            cacheRead: number, 
+            cacheCreation: number,
+            durationMs: number,
+            latencyMs: number,
+            command?: string,
+            repositoryName?: string,
+            linesOfCode: number,
+            commitCount: number,
+            prCount: number
+        }> = {};
 
         for (const rm of resourceMetrics) {
             const projectName = rm.resource?.attributes?.find((a: any) => a.key === 'service.name' || a.key === 'project.name')?.value?.stringValue || 'default';
+            const repoName = rm.resource?.attributes?.find((a: any) => a.key === 'repository.name')?.value?.stringValue;
+            
             const scopeMetrics = rm.scopeMetrics || [];
             for (const sm of scopeMetrics) {
                 const metrics = sm.metrics || [];
                 for (const metric of metrics) {
-                    if (metric.name === 'claude_code.token.usage' || metric.name === 'claude_code.tool_use.count') {
-                        const dataPoints = metric.sum?.dataPoints || [];
+                    if (metric.name === 'claude_code.token.usage' || 
+                        metric.name === 'claude_code.tool_use.count' || 
+                        metric.name === 'claude_code.session.duration' ||
+                        metric.name === 'claude_code.command.execution_time' ||
+                        metric.name === 'claude_code.session.count' ||
+                        metric.name === 'claude_code.lines_of_code.count' ||
+                        metric.name === 'claude_code.commit.count' ||
+                        metric.name === 'claude_code.pull_request.count') {
+                        
+                        const dataPoints = metric.sum?.dataPoints || metric.histogram?.dataPoints || [];
                         for (const dp of dataPoints) {
                             const tokenType = dp.attributes?.find((a: any) => a.key === 'type')?.value?.stringValue;
                             const model = dp.attributes?.find((a: any) => a.key === 'model')?.value?.stringValue || 'claude-3-7-sonnet-20250219';
                             const traceId = dp.attributes?.find((a: any) => a.key === 'trace_id')?.value?.stringValue || 'manual-' + Date.now();
-                            const value = Number(dp.asInt || dp.asDouble || 0);
+                            const command = dp.attributes?.find((a: any) => a.key === 'command')?.value?.stringValue;
+                            const value = Number(dp.asInt || dp.asDouble || dp.sum || 0);
 
                             if (!sessionStats[traceId]) {
-                                sessionStats[traceId] = { model, projectName, input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+                                sessionStats[traceId] = { model, projectName, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, durationMs: 0, latencyMs: 0, linesOfCode: 0, commitCount: 0, prCount: 0, repositoryName: repoName };
                             }
+                            
+                            if (command) sessionStats[traceId].command = command;
+                            if (repoName) sessionStats[traceId].repositoryName = repoName;
 
                             if (metric.name === 'claude_code.token.usage') {
                                 switch (tokenType) {
@@ -69,6 +102,28 @@ export async function POST(req: NextRequest) {
                                     case 'cacheRead': cacheReadTokens += value; sessionStats[traceId].cacheRead += value; break;
                                     case 'cacheCreation': cacheWriteTokens += value; sessionStats[traceId].cacheCreation += value; break;
                                 }
+                            }
+
+                            if (metric.name === 'claude_code.session.count') sessionCount += value;
+                            if (metric.name === 'claude_code.lines_of_code.count') {
+                                linesOfCode += value;
+                                sessionStats[traceId].linesOfCode += value;
+                            }
+                            if (metric.name === 'claude_code.commit.count') {
+                                commitCount += value;
+                                sessionStats[traceId].commitCount += value;
+                            }
+                            if (metric.name === 'claude_code.pull_request.count') {
+                                prCount += value;
+                                sessionStats[traceId].prCount += value;
+                            }
+
+                            if (metric.name === 'claude_code.session.duration') {
+                                sessionStats[traceId].durationMs += value;
+                            }
+
+                            if (metric.name === 'claude_code.command.execution_time') {
+                                sessionStats[traceId].latencyMs = value; // Treat as latest command latency
                             }
 
                             if (metric.name === 'claude_code.tool_use.count') {
@@ -89,7 +144,7 @@ export async function POST(req: NextRequest) {
         }
 
         const totalTokens = inputTokens + outputTokens;
-        if (totalTokens > 0 || cacheReadTokens > 0 || cacheWriteTokens > 0) {
+        if (totalTokens > 0 || cacheReadTokens > 0 || cacheWriteTokens > 0 || Object.keys(sessionStats).length > 0) {
             // Calculate total cost for this chunk
             let chunkCost = 0;
             for (const stats of Object.values(sessionStats)) {
@@ -109,9 +164,13 @@ export async function POST(req: NextRequest) {
                     cache_read_tokens = COALESCE(cache_read_tokens, 0) + $3,
                     cache_write_tokens = COALESCE(cache_write_tokens, 0) + $4,
                     total_cost = COALESCE(total_cost, 0) + $5,
+                    total_sessions = COALESCE(total_sessions, 0) + $6,
+                    total_lines_changed = COALESCE(total_lines_changed, 0) + $7,
+                    total_commits = COALESCE(total_commits, 0) + $8,
+                    total_prs = COALESCE(total_prs, 0) + $9,
                     last_active = NOW()
-                WHERE id = $6
-            `, [inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, chunkCost, profile.id]);
+                WHERE id = $10
+            `, [inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, chunkCost, sessionCount, linesOfCode, commitCount, prCount, profile.id]);
 
             // Update individual sessions
             for (const [traceId, stats] of Object.entries(sessionStats)) {
@@ -123,8 +182,8 @@ export async function POST(req: NextRequest) {
                 });
                 
                 await db.query(`
-                    INSERT INTO usage_sessions (id, user_id, model, project_name, total_input_tokens, total_output_tokens, total_cache_read, total_cache_write, total_cost, last_active)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+                    INSERT INTO usage_sessions (id, user_id, model, project_name, total_input_tokens, total_output_tokens, total_cache_read, total_cache_write, total_cost, last_active, duration_ms, avg_latency_ms, command, lines_of_code, commit_count, pr_count, repository_name)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $10, $11, $12, $13, $14, $15, $16)
                     ON CONFLICT (id) DO UPDATE SET 
                         project_name = EXCLUDED.project_name,
                         total_input_tokens = usage_sessions.total_input_tokens + EXCLUDED.total_input_tokens,
@@ -132,8 +191,15 @@ export async function POST(req: NextRequest) {
                         total_cache_read = usage_sessions.total_cache_read + EXCLUDED.total_cache_read,
                         total_cache_write = usage_sessions.total_cache_write + EXCLUDED.total_cache_write,
                         total_cost = usage_sessions.total_cost + EXCLUDED.total_cost,
+                        duration_ms = usage_sessions.duration_ms + EXCLUDED.duration_ms,
+                        avg_latency_ms = (usage_sessions.avg_latency_ms + EXCLUDED.avg_latency_ms) / 2,
+                        command = COALESCE(EXCLUDED.command, usage_sessions.command),
+                        lines_of_code = usage_sessions.lines_of_code + EXCLUDED.lines_of_code,
+                        commit_count = usage_sessions.commit_count + EXCLUDED.commit_count,
+                        pr_count = usage_sessions.pr_count + EXCLUDED.pr_count,
+                        repository_name = COALESCE(EXCLUDED.repository_name, usage_sessions.repository_name),
                         last_active = NOW()
-                `, [traceId, profile.id, stats.model, stats.projectName, stats.input, stats.output, stats.cacheRead, stats.cacheCreation, cost]);
+                `, [traceId, profile.id, stats.model, stats.projectName, stats.input, stats.output, stats.cacheRead, stats.cacheCreation, cost, stats.durationMs, stats.latencyMs, stats.command, stats.linesOfCode, stats.commitCount, stats.prCount, stats.repositoryName]);
             }
 
             // Calculate and Update Badges

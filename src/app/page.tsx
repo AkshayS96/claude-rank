@@ -8,7 +8,6 @@ import { formatCompactNumber } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
 import { FloatingCode } from '@/components/FloatingCode';
-import BadgeDisplay from '@/components/BadgeDisplay';
 import type { User } from '@supabase/supabase-js';
 
 interface Profile {
@@ -336,7 +335,6 @@ export default function LeaderboardPage() {
                               )}
                             </div>
                           </div>
-                          <BadgeDisplay badges={profile.badges || []} />
                         </div>
                       </div>
                       <div className="col-span-3 text-right font-bold text-slate-900 font-mono text-lg">

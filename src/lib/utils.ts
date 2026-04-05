@@ -120,9 +120,17 @@ export function calculateBadges(profile: any, toolStats: any[] = [], logs: any[]
 }
 
 export async function hashApiKey(key: string): Promise<string> {
+    const trimmedKey = key.trim();
     const encoder = new TextEncoder();
-    const data = encoder.encode(key);
-    const hash = await crypto.subtle.digest('SHA-256', data);
+    const data = encoder.encode(trimmedKey);
+    
+    // Use globalThis.crypto for cross-environment compatibility (Node, Edge, Browser)
+    const cryptoObj = globalThis.crypto;
+    if (!cryptoObj || !cryptoObj.subtle) {
+        throw new Error('Crypto Subtle API not available in this environment');
+    }
+    
+    const hash = await cryptoObj.subtle.digest('SHA-256', data);
     return Array.from(new Uint8Array(hash))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');

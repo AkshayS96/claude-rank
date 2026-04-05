@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCompactNumber, formatCurrency } from '@/lib/utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { Terminal, Cpu, DollarSign, Activity, Wallet, Box, Clock } from 'lucide-react';
+import { Terminal, Cpu, DollarSign, Activity, Wallet, Box, Clock, Zap, AlertCircle } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#818cf8', '#10b981', '#94a3b8', '#c084fc', '#f472b6'];
 
@@ -69,6 +69,13 @@ export default function SessionAnalytics({ userId }: { userId: string }) {
 
     const totalSessionTokens = (selectedSession?.total_input_tokens || 0) + (selectedSession?.total_output_tokens || 0);
     const moneySaved = (selectedSession?.total_cache_read || 0) * (2.70 / 1_000_000);
+    const formatDuration = (ms: number) => {
+        if (ms < 1000) return `${ms}ms`;
+        const sec = Math.floor(ms / 1000);
+        if (sec < 60) return `${sec}s`;
+        const min = Math.floor(sec / 60);
+        return `${min}m ${sec % 60}s`;
+    };
 
     const costData = [
         { name: 'Input', value: selectedSession?.total_input_tokens || 0, color: '#6366f1' },
@@ -85,7 +92,7 @@ export default function SessionAnalytics({ userId }: { userId: string }) {
                     <h3 className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-black flex items-center gap-2 px-2">
                         <Box className="w-3.5 h-3.5" /> Recent Registry
                     </h3>
-                    <div className="space-y-2 max-h-[640px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-2 max-h-[740px] overflow-y-auto pr-2 custom-scrollbar">
                         {sessions.map(s => (
                             <button
                                 key={s.id}
@@ -99,11 +106,14 @@ export default function SessionAnalytics({ userId }: { userId: string }) {
                                 {selectedSession?.id === s.id && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-600" />}
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex flex-col min-w-0">
-                                        <span className={`font-black truncate text-sm tracking-tight ${selectedSession?.id === s.id ? 'text-slate-900' : 'text-slate-500'}`}>
-                                            {s.project_name || 'default'}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`font-black truncate text-sm tracking-tight ${selectedSession?.id === s.id ? 'text-slate-900' : 'text-slate-500'}`}>
+                                                {s.project_name || 'default'}
+                                            </span>
+                                            {s.repository_name && <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold truncate max-w-[80px]">{s.repository_name.split('/').pop()}</span>}
+                                        </div>
                                         <span className="text-[10px] font-mono opacity-50 uppercase tracking-tighter">
-                                            ID: {s.id.slice(0, 8)}
+                                            {s.command ? s.command.slice(0, 20) + (s.command.length > 20 ? '...' : '') : `ID: ${s.id.slice(0, 8)}`}
                                         </span>
                                     </div>
                                     <span className="text-[10px] font-black text-slate-300">
@@ -111,7 +121,10 @@ export default function SessionAnalytics({ userId }: { userId: string }) {
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center pt-3 border-t border-slate-50">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.model?.split('-').slice(2, 3)}</span>
+                                    <div className="flex gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.model?.split('-').slice(2, 3)}</span>
+                                        {s.error_count > 0 && <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> {s.error_count}</span>}
+                                    </div>
                                     <span className={`font-black text-sm ${selectedSession?.id === s.id ? 'text-indigo-600' : 'text-slate-400'}`}>
                                         {formatCurrency(s.total_cost || 0)}
                                     </span>
@@ -127,11 +140,32 @@ export default function SessionAnalytics({ userId }: { userId: string }) {
                         <>
                             {/* Summary Cards */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <SummaryCard label="Model" value={selectedSession.model?.split('-').slice(0, 3).join('-') || 'Unknown'} icon={<Cpu className="w-4 h-4" />} color="indigo" />
-                                <SummaryCard label="Total Tokens" value={formatCompactNumber(totalSessionTokens)} icon={<Activity className="w-4 h-4" />} color="slate" />
+                                <SummaryCard label="Time in Loop" value={formatDuration(selectedSession.duration_ms || 0)} icon={<Clock className="w-4 h-4" />} color="slate" />
+                                <SummaryCard label="Avg Latency" value={`${selectedSession.avg_latency_ms || 0}ms`} icon={<Zap className="w-4 h-4" />} color="indigo" />
                                 <SummaryCard label="Session Cost" value={formatCurrency(selectedSession.total_cost || 0)} icon={<DollarSign className="w-4 h-4" />} color="indigo" />
                                 <SummaryCard label="Efficiency" value={`+${formatCurrency(moneySaved)}`} icon={<Wallet className="w-4 h-4" />} color="emerald" sub="Saved" />
                             </div>
+
+                            {(selectedSession.lines_of_code > 0 || selectedSession.commit_count > 0 || selectedSession.pr_count > 0) && (
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <SummaryCard label="Lines Changed" value={formatCompactNumber(selectedSession.lines_of_code)} icon={<Activity className="w-4 h-4" />} color="slate" />
+                                    <SummaryCard label="Commits" value={String(selectedSession.commit_count)} icon={<Github className="w-4 h-4" />} color="slate" />
+                                    <SummaryCard label="PRs Created" value={String(selectedSession.pr_count)} icon={<LayoutDashboard className="w-4 h-4" />} color="slate" />
+                                </div>
+                            )}
+
+                            {selectedSession.command && (
+                                <div className="bg-slate-900 text-slate-300 p-5 rounded-2xl font-mono text-sm border border-slate-800 shadow-xl overflow-hidden group">
+                                    <div className="flex items-center gap-3 mb-2 opacity-50">
+                                        <Terminal className="w-4 h-4" />
+                                        <span className="text-[10px] uppercase tracking-widest font-black">Latest Direct Command</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-indigo-400 font-bold">$</span>
+                                        <span className="text-white font-medium">claude {selectedSession.command}</span>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                                 {/* Token Breakdown Pie */}
@@ -205,8 +239,8 @@ export default function SessionAnalytics({ userId }: { userId: string }) {
                                             <tr>
                                                 <th className="px-6 py-4">Tool Identifier</th>
                                                 <th className="px-6 py-4 text-right">Executions</th>
-                                                <th className="px-6 py-4 text-right">Agg. Load</th>
-                                                <th className="px-6 py-4 text-right">Unit In</th>
+                                                <th className="px-6 py-4 text-right">Latency</th>
+                                                <th className="px-6 py-4 text-right">Errors</th>
                                                 <th className="px-6 py-4 text-right">Est. Cost</th>
                                             </tr>
                                         </thead>
@@ -215,8 +249,10 @@ export default function SessionAnalytics({ userId }: { userId: string }) {
                                                 <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="px-6 py-4 font-black text-slate-900">{t.tool_name}</td>
                                                     <td className="px-6 py-4 text-right font-mono font-bold">{t.call_count}</td>
-                                                    <td className="px-6 py-4 text-right font-mono">{formatCompactNumber(t.input_tokens + t.output_tokens)}</td>
-                                                    <td className="px-6 py-4 text-right font-mono opacity-60">{formatCompactNumber(Math.round(t.input_tokens / t.call_count))}</td>
+                                                    <td className="px-6 py-4 text-right font-mono text-slate-400">{t.avg_latency_ms || 0}ms</td>
+                                                    <td className="px-6 py-4 text-right font-mono">
+                                                        {t.error_count > 0 ? <span className="text-red-500 font-bold">{t.error_count}</span> : <span className="text-slate-300">0</span>}
+                                                    </td>
                                                     <td className="px-6 py-4 text-right text-indigo-600 font-black font-mono">{formatCurrency(t.cost || 0)}</td>
                                                 </tr>
                                             ))}

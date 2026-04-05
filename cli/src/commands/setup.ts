@@ -32,11 +32,13 @@ export async function setupCommand() {
         `export CLAUDE_CODE_ENABLE_TELEMETRY=1`,
         `export OTEL_METRICS_EXPORTER=otlp`,
         `export OTEL_LOGS_EXPORTER=otlp`,
+        `export OTEL_TRACES_EXPORTER=otlp`,
         `export OTEL_EXPORTER_OTLP_PROTOCOL=http/json`,
         `export OTEL_EXPORTER_OTLP_ENDPOINT="${urls.OTEL}"`,
         `export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer ${config.api_key},X-Twitter-Handle=${config.twitter_handle}"`,
-        `export OTEL_METRIC_EXPORT_INTERVAL=10000`,
-        `export OTEL_RESOURCE_ATTRIBUTES="twitter_handle=${config.twitter_handle}"`
+        `export OTEL_METRIC_EXPORT_INTERVAL=5000`,
+        `export OTEL_SERVICE_NAME="claude-code"`,
+        `export OTEL_RESOURCE_ATTRIBUTES="twitter_handle=${config.twitter_handle},user.id=${config.twitter_handle},service.name=claude-code"`
     ].join('\n');
 
     try {
@@ -46,7 +48,8 @@ export async function setupCommand() {
         const currentContent = fs.existsSync(rcFile) ? fs.readFileSync(rcFile, 'utf-8') : '';
         if (currentContent.includes('CLAUDE_CODE_ENABLE_TELEMETRY')) {
             console.log(chalk.yellow('Configuration already exists. Replacing with new config...'));
-            // Remove old config block
+            
+            // Robustly remove old config block
             const newContent = currentContent
                 .replace(/# AI Rank Telemetry Configuration[\s\S]*?export OTEL_RESOURCE_ATTRIBUTES=.*\n?/g, '')
                 .replace(/export CLAUDE_CODE_ENABLE_TELEMETRY=.*\n?/g, '')
@@ -54,12 +57,15 @@ export async function setupCommand() {
                 .replace(/export OTEL_RESOURCE_ATTRIBUTES=.*\n?/g, '')
                 .replace(/export OTEL_METRICS_EXPORTER=.*\n?/g, '')
                 .replace(/export OTEL_LOGS_EXPORTER=.*\n?/g, '')
+                .replace(/export OTEL_TRACES_EXPORTER=.*\n?/g, '')
                 .replace(/export OTEL_EXPORTER_OTLP_PROTOCOL=.*\n?/g, '')
                 .replace(/export OTEL_EXPORTER_OTLP_HEADERS=.*\n?/g, '')
-                .replace(/export OTEL_METRIC_EXPORT_INTERVAL=.*\n?/g, '');
-            fs.writeFileSync(rcFile, newContent + `\n${vars}\n`);
+                .replace(/export OTEL_METRIC_EXPORT_INTERVAL=.*\n?/g, '')
+                .replace(/export OTEL_SERVICE_NAME=.*\n?/g, '');
+            
+            fs.writeFileSync(rcFile, newContent.trim() + `\n\n${vars}\n`);
         } else {
-            fs.appendFileSync(rcFile, `\n${vars}\n`);
+            fs.appendFileSync(rcFile, `\n\n${vars}\n`);
         }
 
         console.log(chalk.green(`\n✓ Successfully configured environment variables in ${rcFile}`));
@@ -80,9 +86,11 @@ function printVars(config: any) {
     console.log(`export CLAUDE_CODE_ENABLE_TELEMETRY=1`);
     console.log(`export OTEL_METRICS_EXPORTER=otlp`);
     console.log(`export OTEL_LOGS_EXPORTER=otlp`);
+    console.log(`export OTEL_TRACES_EXPORTER=otlp`);
     console.log(`export OTEL_EXPORTER_OTLP_PROTOCOL=http/json`);
     console.log(`export OTEL_EXPORTER_OTLP_ENDPOINT="${urls.OTEL}"`);
     console.log(`export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer ${config.api_key},X-Twitter-Handle=${config.twitter_handle}"`);
-    console.log(`export OTEL_METRIC_EXPORT_INTERVAL=10000`);
-    console.log(`export OTEL_RESOURCE_ATTRIBUTES="twitter_handle=${config.twitter_handle}"`);
+    console.log(`export OTEL_METRIC_EXPORT_INTERVAL=5000`);
+    console.log(`export OTEL_SERVICE_NAME="claude-code"`);
+    console.log(`export OTEL_RESOURCE_ATTRIBUTES="twitter_handle=${config.twitter_handle},user.id=${config.twitter_handle},service.name=claude-code"`);
 }

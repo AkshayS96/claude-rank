@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
         const hashedKey = await hashApiKey(api_key);
 
         const { rows } = await db.query(
-            `SELECT twitter_handle FROM profiles WHERE api_key_hash = $1`,
+            `SELECT username, twitter_handle FROM profiles WHERE api_key_hash = $1`,
             [hashedKey]
         );
 
@@ -18,7 +18,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid API Key' }, { status: 401 });
         }
 
-        return NextResponse.json({ success: true, handle: rows[0].twitter_handle });
+        const user = rows[0];
+        return NextResponse.json({ 
+            success: true, 
+            handle: user.twitter_handle || user.username 
+        });
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
     }

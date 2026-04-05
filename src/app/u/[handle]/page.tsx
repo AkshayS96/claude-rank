@@ -217,13 +217,20 @@ export default function UserProfilePage() {
                     </div>
                 </header>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
                     <StatBox label="Aggregate Load" value={formatCompactNumber(profile.total_tokens || 0)} color="indigo" />
                     <StatBox label="Lifetime Cost" value={formatCurrency(profile.total_cost || 0)} color="indigo" />
                     <StatBox label="Top Model" value="Sonnet 3.7" color="slate" />
                     <StatBox label="Total Input" value={formatCompactNumber(profile.input_tokens || 0)} color="slate" />
                     <StatBox label="Total Output" value={formatCompactNumber(profile.output_tokens || 0)} color="slate" />
                     <StatBox label="Cache Savings" value={formatCompactNumber(profile.cache_read_tokens || 0)} color="emerald" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+                    <ProductivityBox label="Lines Changed" value={formatCompactNumber(profile.total_lines_changed || 0)} icon={<Activity className="w-4 h-4" />} />
+                    <ProductivityBox label="Commits" value={String(profile.total_commits || 0)} icon={<Github className="w-4 h-4" />} />
+                    <ProductivityBox label="Pull Requests" value={String(profile.total_prs || 0)} icon={<LayoutDashboard className="w-4 h-4" />} />
+                    <ProductivityBox label="Sessions" value={String(profile.total_sessions || 0)} icon={<Clock className="w-4 h-4" />} />
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm mb-10">
@@ -293,6 +300,20 @@ function StatBox({ label, value, color }: { label: string, value: string, color:
         <div className={`p-6 border rounded-2xl transition-all hover:scale-[1.02] hover:shadow-md ${colors[color]}`}>
             <span className="block font-black text-3xl mb-1 tracking-tighter">{value}</span>
             <span className="text-[10px] uppercase tracking-widest font-black opacity-60">{label}</span>
+        </div>
+    );
+}
+
+function ProductivityBox({ label, value, icon }: { label: string, value: string, icon: any }) {
+    return (
+        <div className="p-4 border border-slate-200 bg-white rounded-2xl flex items-center gap-4 transition-all hover:shadow-sm">
+            <div className="p-2 bg-slate-50 text-slate-400 rounded-lg">
+                {icon}
+            </div>
+            <div>
+                <div className="text-[10px] text-slate-400 uppercase tracking-widest font-black mb-0.5">{label}</div>
+                <div className="text-xl font-black text-slate-900">{value}</div>
+            </div>
         </div>
     );
 }
